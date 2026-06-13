@@ -105,35 +105,26 @@ function RecordDetail({ rec }) {
   )
 }
 
-function NewInspectionForm({ orders, onClose, onSubmit }) {
-  const [qcType, setQcType] = useState('incoming')
+// Quality only records FINAL (pre-dispatch) inspection now — incoming QC is
+// performed in Inventory at goods inward.
+function NewFinalInspectionForm({ orders, onClose, onSubmit }) {
   const [material, setMaterial] = useState('')
-  const [grn, setGrn] = useState('')
-  const [lot, setLot] = useState('')
   const [wo, setWo] = useState(orders[0]?.id || '')
   const [status, setStatus] = useState('pass')
-
-  const doc = qcType === 'final' ? 'QA-FQP-002 Rev 4' : 'QA-IQP-004 Rev 6'
-  const dispositions =
-    status === 'pass'
-      ? qcType === 'final'
-        ? ['Accept → Dispatch']
-        : ['Accept → Stores']
-      : ['Rework', 'Return to supplier', 'Scrap']
+  const dispositions = status === 'pass' ? ['Accept → Dispatch'] : ['Rework', 'Scrap']
   const [disposition, setDisposition] = useState(dispositions[0])
 
-  // Keep disposition valid when type/result changes.
   React.useEffect(() => {
     setDisposition(dispositions[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qcType, status])
+  }, [status])
 
   const valid = material.trim().length > 0
 
   return (
     <Modal
-      title="New inspection record"
-      subtitle="Record an incoming-material or final pre-dispatch inspection"
+      title="New final inspection"
+      subtitle="Post-assembly, pre-dispatch inspection of a built panel"
       onClose={onClose}
       footer={
         <>
@@ -142,11 +133,11 @@ function NewInspectionForm({ orders, onClose, onSubmit }) {
             disabled={!valid}
             onClick={() =>
               onSubmit({
-                qcType,
-                doc,
+                qcType: 'final',
+                doc: 'QA-FQP-002 Rev 4',
                 material,
-                grn: qcType === 'incoming' ? grn : '—',
-                lot: qcType === 'incoming' ? lot : `WO ${wo}`,
+                grn: '—',
+                lot: `WO ${wo}`,
                 wo,
                 status,
                 disposition,
@@ -159,55 +150,18 @@ function NewInspectionForm({ orders, onClose, onSubmit }) {
       }
     >
       <div className="space-y-4">
-        <div>
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-charcoal-500">Gate</span>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ['incoming', 'Incoming (material)'],
-              ['final', 'Final (pre-dispatch)'],
-            ].map(([val, label]) => (
-              <button
-                key={val}
-                onClick={() => setQcType(val)}
-                className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-                  qcType === val ? 'border-teal-400 bg-teal-50 text-teal-800' : 'border-charcoal-200 text-charcoal-500'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <Field label={qcType === 'final' ? 'Assembly / panel' : 'Material'}>
-          <Input
-            value={material}
-            onChange={(e) => setMaterial(e.target.value)}
-            placeholder={qcType === 'final' ? 'Assembled panel — 8DJHST …' : 'PVC Insu HV 2.5sqmm Grey'}
-          />
+        <Field label="Assembly / panel">
+          <Input value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="Assembled panel — 8DJHST …" />
         </Field>
-
-        {qcType === 'incoming' ? (
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="GRN No">
-              <Input value={grn} onChange={(e) => setGrn(e.target.value)} placeholder="GRN/…" />
-            </Field>
-            <Field label="Lot No">
-              <Input value={lot} onChange={(e) => setLot(e.target.value)} placeholder="L/6/26-…" />
-            </Field>
-          </div>
-        ) : (
-          <Field label="Work order">
-            <Select value={wo} onChange={(e) => setWo(e.target.value)}>
-              {orders.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.id} — {o.client}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
-
+        <Field label="Work order">
+          <Select value={wo} onChange={(e) => setWo(e.target.value)}>
+            {orders.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.id} — {o.client}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Result">
             <Select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -233,18 +187,16 @@ export default function Quality({ selectedOrder, user }) {
   const { qualityRecords, orders } = state
   const editable = canEdit(user.role, 'quality')
 
-  const [tab, setTab] = useState('incoming')
+  const [tab, setTab] = useState('final')
   const [showForm, setShowForm] = useState(false)
 
   const records = useMemo(() => qualityRecords.filter((r) => r.qcType === tab), [qualityRecords, tab])
 
-  // Pick a sensible default record for the active tab.
   const initial =
     records.find((r) => r.wo === selectedOrder) || records.find((r) => r.status === 'hold') || records[0]
   const [selectedId, setSelectedId] = useState(initial?.id)
   const selected = records.find((r) => r.id === selectedId) || initial
 
-  // When the tab changes, keep selection inside the tab.
   React.useEffect(() => {
     setSelectedId(initial?.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,17 +211,17 @@ export default function Quality({ selectedOrder, user }) {
   }
 
   const counts = {
-    incoming: qualityRecords.filter((r) => r.qcType === 'incoming').length,
     final: qualityRecords.filter((r) => r.qcType === 'final').length,
+    incoming: qualityRecords.filter((r) => r.qcType === 'incoming').length,
   }
 
   return (
     <div className="space-y-5">
       <SectionTitle
-        sub="Two QC gates — incoming material, and final inspection after assembly before dispatch."
+        sub="Final pre-dispatch inspection and the audit pack. Incoming material QC is done in Inventory."
         action={
           <div className="flex gap-2">
-            {editable && (
+            {editable && tab === 'final' && (
               <Button onClick={() => setShowForm(true)}>
                 <Icon.plus size={16} /> New inspection
               </Button>
@@ -283,11 +235,10 @@ export default function Quality({ selectedOrder, user }) {
         Quality
       </SectionTitle>
 
-      {/* QC gate tabs */}
       <div className="flex gap-1 rounded-lg bg-charcoal-100 p-1 sm:w-fit">
         {[
-          ['incoming', 'Incoming (at goods inward)'],
           ['final', 'Final (after assembly)'],
+          ['incoming', 'Incoming (history)'],
         ].map(([val, label]) => (
           <button
             key={val}
@@ -303,7 +254,7 @@ export default function Quality({ selectedOrder, user }) {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_1fr]">
-        <Card title={tab === 'final' ? 'Final inspection records' : 'Incoming inspection records'}>
+        <Card title={tab === 'final' ? 'Final inspection records' : 'Incoming inspection (history)'}>
           <ul className="space-y-2">
             {records.map((r) => {
               const active = r.id === selected?.id
@@ -331,6 +282,11 @@ export default function Quality({ selectedOrder, user }) {
               <li className="py-6 text-center text-sm text-charcoal-400">No records yet.</li>
             )}
           </ul>
+          {tab === 'incoming' && (
+            <p className="mt-3 text-xs text-charcoal-400">
+              Read-only history — incoming inspection is now performed in Inventory at goods inward.
+            </p>
+          )}
         </Card>
 
         {selected ? (
@@ -343,12 +299,11 @@ export default function Quality({ selectedOrder, user }) {
       </div>
 
       {showForm && (
-        <NewInspectionForm
+        <NewFinalInspectionForm
           orders={orders}
           onClose={() => setShowForm(false)}
           onSubmit={(p) => {
             dispatch({ type: 'ADD_INSPECTION', payload: { ...p, checkedBy: user.name } })
-            setTab(p.qcType)
             setShowForm(false)
           }}
         />

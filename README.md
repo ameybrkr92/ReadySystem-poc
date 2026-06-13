@@ -24,17 +24,18 @@ Opens at <http://localhost:5173> on a desktop/laptop browser.
 
 ## Logins (demo)
 
-Sign in by clicking a role card, or type a username with the demo password
-**`ready`**. Each role sees only what it owns (plus the shared dashboard); the
-Director sees everything.
+Enterprise-style sign-in with username + password. Demo credentials are not
+shown on the front page — expand **"Demo access"** at the bottom of the card to
+pick a role (demo password **`ready`**). Each role sees only what it owns (plus
+the shared dashboard); the Director sees everything.
 
-| Username   | Role                | Sees                                   | Can create            |
-|------------|---------------------|----------------------------------------|-----------------------|
-| `director` | Director            | Dashboard + all four modules           | everything            |
-| `planning` | Planning            | Dashboard + Planning                   | work orders           |
-| `purchase` | Purchase & Costing  | Dashboard + Purchase + Planning (cost) | purchase orders       |
-| `stores`   | Stores              | Dashboard + Stores                     | GRNs, issue-to-job    |
-| `quality`  | Quality             | Dashboard + Quality                    | inspection records    |
+| Username    | Role                | Sees                                    | Can create            |
+|-------------|---------------------|-----------------------------------------|-----------------------|
+| `director`  | Director            | Dashboard (rich KPIs) + all modules     | everything            |
+| `planning`  | Planning            | Dashboard + Planning                    | work orders           |
+| `purchase`  | Purchase & Costing  | Dashboard + Purchase + Planning (cost)  | purchase orders       |
+| `inventory` | Inventory           | Dashboard + Inventory                   | GRNs, issue, incoming QC |
+| `quality`   | Quality             | Dashboard + Quality + Inventory         | final inspections, incoming QC |
 
 ## What you'll see
 
@@ -44,17 +45,21 @@ Director sees everything.
   and a right rail with alerts + a streaming activity feed.
   - The simulation advances every few seconds on its own. Use **Play/Pause**,
     the **speed** selector (0.5×–4×), **Fast-forward day**, and **Reset demo**.
-- **Planning & BOM** — the Siemens work-order tracker; open an order to see its
-  config parsed into feeders, a sample harness BOM, a costing summary, and the
-  "BOM sent to costing" / "Costing sheet sent to Siemens" milestones.
+- **Dashboard** — KPI strip, **project-wise** rollup, and the live order board.
+  The Director also gets extra KPIs (Stuck) and a stage-distribution matrix.
+- **Planning & BOM** — orders + the **total BOM**: the planner reads the
+  drawings and builds the full BOM, clearly split into *client-supplied
+  (Siemens)* apparatus and the *harness, lugs, ferrules, ducting and
+  consumables Ready Systems adds* (not in the client BOM). Plus config parse,
+  costing, and the two date milestones.
 - **Purchase** — POs raised from BOMs with real suppliers; one pending PO is
   flagged as delaying a job (tied to the dashboard shortage alert).
-- **Stores** — the goods inward register (their real columns), live running
-  stock (wire in metres + coils, terminals in nos), and issue-to-job records.
-- **Quality** — **two QC gates**: *Incoming* (at goods inward) and *Final*
-  (after assembly, before dispatch), each with its own inspection records. One
-  incoming lot and one final panel are on hold (tied to dashboard alerts), plus
-  an "audit pack" export.
+- **Inventory** (formerly Stores) — goods inward register (real columns), live
+  stock (metres + coils, nos), issue-to-job, and **incoming QC done right here**
+  at the inward desk (clear or hold each lot).
+- **Quality** — **final** pre-dispatch inspection records and the "audit pack"
+  export, with a read-only **incoming history** tab. A final panel is on hold
+  (tied to the dashboard QC alert).
 
 ## Making entries
 
@@ -63,10 +68,11 @@ shared in-memory state — so the whole system reacts at once:
 
 - **Planning → New work order** — joins the live pipeline at RFQ.
 - **Purchase → New PO** — multi-line PO against a supplier and work order.
-- **Stores → New GRN / Issue to job** — a GRN bumps live stock and queues
-  incoming QC; an issue draws stock down against a W/O.
-- **Quality → New inspection** — record an incoming or final inspection;
-  a "hold" raises an alert on the dashboard.
+- **Inventory → New GRN / Issue to job** — a GRN bumps live stock and queues
+  incoming QC; **Accept / Hold** clears the lot in incoming QC; an issue draws
+  stock down against a W/O.
+- **Quality → New inspection** — record a final inspection; a "hold" raises an
+  alert on the dashboard.
 
 "Reset demo" restores the pristine seed (it does not log you out).
 

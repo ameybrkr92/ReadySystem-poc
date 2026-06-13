@@ -101,10 +101,7 @@ function IssueForm({ orders, onClose, onSubmit }) {
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button
-            disabled={!valid}
-            onClick={() => onSubmit({ wo, item, qtyNum: Number(qty), unit: mat.unit })}
-          >
+          <Button disabled={!valid} onClick={() => onSubmit({ wo, item, qtyNum: Number(qty), unit: mat.unit })}>
             <Icon.check size={15} /> Issue
           </Button>
         </>
@@ -135,16 +132,23 @@ function IssueForm({ orders, onClose, onSubmit }) {
   )
 }
 
-export default function Stores({ user }) {
+export default function Inventory({ user }) {
   const { state, dispatch } = useStore()
   const { goodsInward, stock, issues, orders } = state
   const [modal, setModal] = useState(null) // 'grn' | 'issue' | null
-  const editable = canEdit(user.role, 'stores')
+  const editable = canEdit(user.role, 'inventory')
+
+  // Lots awaiting incoming QC — the inward desk clears or holds them here.
+  const pendingQC = goodsInward.filter((g) => g.inspection === 'Pending')
+
+  function setInspection(grn, status) {
+    dispatch({ type: 'SET_GRN_INSPECTION', payload: { grn, status } })
+  }
 
   return (
     <div className="space-y-5">
       <SectionTitle
-        sub="Your paper inward register, digitized — with live stock and issue-to-job, the part paper can't do."
+        sub="Goods inward, incoming QC, live stock and issue-to-job — one connected register."
         action={
           editable && (
             <div className="flex gap-2">
@@ -158,8 +162,54 @@ export default function Stores({ user }) {
           )
         }
       >
-        Stores
+        Inventory
       </SectionTitle>
+
+      {/* Incoming QC — integral to inward */}
+      <Card
+        title="Incoming QC"
+        action={<Tag tone="teal">Inward does QC</Tag>}
+      >
+        {pendingQC.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-charcoal-500">
+            <Icon.check size={16} /> No lots awaiting inspection — all inward material cleared.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pendingQC.map((g) => (
+              <div
+                key={g.grn}
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5"
+              >
+                <span className="font-mono text-sm font-semibold text-charcoal-800">{g.grn}</span>
+                <span className="text-sm text-charcoal-700">{g.item}</span>
+                <span className="text-xs text-charcoal-500">{g.qty} · {g.party}</span>
+                <Tag tone="amber">Awaiting QC</Tag>
+                {editable && (
+                  <span className="ml-auto flex gap-2">
+                    <button
+                      onClick={() => setInspection(g.grn, 'On Hold')}
+                      className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Hold
+                    </button>
+                    <button
+                      onClick={() => setInspection(g.grn, 'Accepted')}
+                      className="rounded-lg bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-teal-700"
+                    >
+                      Accept → Stock
+                    </button>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-3 text-xs text-charcoal-400">
+          Incoming inspection happens right here at goods inward — no separate step. Held lots raise a
+          dashboard alert.
+        </p>
+      </Card>
 
       <Card title="Goods inward register">
         <div className="overflow-x-auto">
@@ -205,7 +255,7 @@ export default function Stores({ user }) {
           </table>
         </div>
         <p className="mt-3 text-xs text-charcoal-400">
-          Same columns as the bound register on the stores desk — Inspection now links straight to Quality.
+          Same columns as the bound register on the inward desk — Inspection is set right here at incoming QC.
         </p>
       </Card>
 

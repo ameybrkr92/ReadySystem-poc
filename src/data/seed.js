@@ -13,7 +13,7 @@ export const STAGES = [
   'Quote',
   'PO',
   'Purchase',
-  'Stores',
+  'Inventory',
   'Build',
   'QC',
   'Dispatch',
@@ -48,6 +48,33 @@ export const MATERIALS = [
   { id: 'm7', desc: 'Snap-on Terminal', unit: 'nos', rate: 1.68 },
 ]
 
+// Items Ready Systems identifies from the GA / wiring drawings and adds to the
+// "total BOM" — harness, lugs, ferrules, ducting etc. These are NOT in the
+// client (Siemens) BOM; identifying them is the planner's value-add.
+export const HARNESS_ITEMS = [
+  { desc: 'Ring Lug 2.5sqmm', unit: 'nos', rate: 2.4 },
+  { desc: 'Ring Lug 1.5sqmm', unit: 'nos', rate: 2.1 },
+  { desc: 'Bootlace Ferrule 2.5sqmm', unit: 'nos', rate: 0.85 },
+  { desc: 'Bootlace Ferrule 1.5sqmm', unit: 'nos', rate: 0.72 },
+  { desc: 'Wire Duct 25×40mm', unit: 'm', rate: 86 },
+  { desc: 'DIN Rail 35mm', unit: 'm', rate: 42 },
+  { desc: 'Cable Tie 100mm', unit: 'nos', rate: 0.35 },
+  { desc: 'Heat-shrink Sleeve 6mm', unit: 'm', rate: 9.5 },
+  { desc: 'Ferrule Marker', unit: 'nos', rate: 0.4 },
+  { desc: 'Earthing Braid 6sqmm', unit: 'm', rate: 28 },
+]
+
+// Major components the client (Siemens) supplies / specifies — shown for
+// contrast in the total BOM. Ready Systems does not buy these; `per` maps a
+// quantity to a feeder code (R/L/ME) or the motorised option (MOT).
+export const CLIENT_BOM = [
+  { desc: 'Vacuum Circuit Breaker', unit: 'nos', per: 'L' },
+  { desc: 'Ring Main Unit module', unit: 'nos', per: 'R' },
+  { desc: 'CT / PT Metering set', unit: 'set', per: 'ME' },
+  { desc: 'Motorised actuator', unit: 'nos', per: 'MOT' },
+  { desc: 'Enclosure / cubicle', unit: 'nos', per: 'PANEL' },
+]
+
 // One coil of wire ≈ 100 m (used to show "metres + coils" on the stock view).
 export const COIL_METRES = 100
 
@@ -60,14 +87,14 @@ export const ROLES = {
   director: {
     id: 'director',
     label: 'Director',
-    blurb: 'Full visibility — every module, every order',
-    modules: ['dashboard', 'planning', 'purchase', 'stores', 'quality'],
-    edit: ['planning', 'purchase', 'stores', 'quality'],
+    blurb: 'Full visibility — every module, every project',
+    modules: ['dashboard', 'planning', 'purchase', 'inventory', 'quality'],
+    edit: ['planning', 'purchase', 'inventory', 'quality'],
   },
   planning: {
     id: 'planning',
     label: 'Planning',
-    blurb: 'Work orders, BOM & costing',
+    blurb: 'Work orders, total BOM & costing',
     modules: ['dashboard', 'planning'],
     edit: ['planning'],
   },
@@ -78,19 +105,19 @@ export const ROLES = {
     modules: ['dashboard', 'purchase', 'planning'],
     edit: ['purchase'],
   },
-  stores: {
-    id: 'stores',
-    label: 'Stores',
-    blurb: 'Goods inward, stock & issue-to-job',
-    modules: ['dashboard', 'stores'],
-    edit: ['stores'],
+  inventory: {
+    id: 'inventory',
+    label: 'Inventory',
+    blurb: 'Goods inward, incoming QC, stock & issue-to-job',
+    modules: ['dashboard', 'inventory'],
+    edit: ['inventory'],
   },
   quality: {
     id: 'quality',
     label: 'Quality',
-    blurb: 'Incoming & final inspection',
-    modules: ['dashboard', 'quality'],
-    edit: ['quality'],
+    blurb: 'Final inspection & audit pack',
+    modules: ['dashboard', 'quality', 'inventory'],
+    edit: ['quality', 'inventory'],
   },
 }
 
@@ -100,7 +127,7 @@ export const USERS = [
   { username: 'director', name: 'R. Ready', role: 'director', initials: 'RR' },
   { username: 'planning', name: 'S. Kulkarni', role: 'planning', initials: 'SK' },
   { username: 'purchase', name: 'M. Joshi', role: 'purchase', initials: 'MJ' },
-  { username: 'stores', name: 'R. Shinde', role: 'stores', initials: 'RS' },
+  { username: 'inventory', name: 'R. Shinde', role: 'inventory', initials: 'RS' },
   { username: 'quality', name: 'A. Patil', role: 'quality', initials: 'AP' },
 ]
 
@@ -117,6 +144,7 @@ function buildSeed() {
     {
       id: '3009611593/100',
       client: 'Siemens Energy India Ltd',
+      project: 'Siemens — GETCO MV',
       product: '8DJHST',
       config: 'RRL',
       motorised: false,
@@ -131,6 +159,7 @@ function buildSeed() {
     {
       id: '3009628618/100',
       client: 'Aravinda Infra (AIPL)',
+      project: 'Siemens — AIPL/SCPL',
       product: '8DJHST',
       config: 'ME+LRRL-',
       motorised: true,
@@ -145,6 +174,7 @@ function buildSeed() {
     {
       id: '3009649896/100',
       client: 'Radiance LOT 3',
+      project: 'Siemens — GETCO MV',
       product: '8DJHST',
       config: 'RRL+ME',
       motorised: false,
@@ -159,6 +189,7 @@ function buildSeed() {
     {
       id: '3009348471/100',
       client: 'Switchgear Controls',
+      project: 'Siemens — AIPL/SCPL',
       product: '8DJHST',
       config: 'LRRL+ME',
       motorised: true,
@@ -173,6 +204,7 @@ function buildSeed() {
     {
       id: '3008917364/400',
       client: 'Rajesh Robust UGVCL',
+      project: 'Siemens — GETCO MV',
       product: '8DJHST',
       config: 'RRRL',
       motorised: false,
@@ -187,6 +219,7 @@ function buildSeed() {
     {
       id: 'CSS-ADANI-001',
       client: 'Adani Dhamra Port',
+      project: 'Adani Dhamra Port',
       product: '8FB20',
       config: 'RRL+ME',
       motorised: true,
@@ -201,6 +234,7 @@ function buildSeed() {
     {
       id: '3009646299/100',
       client: 'NSMG',
+      project: 'Siemens — 8FB20 NSMG',
       product: '8FB20',
       config: 'RRL',
       motorised: false,
@@ -409,7 +443,7 @@ function buildSeed() {
       date: '11/04/2026',
       status: 'pass',
       wo: '3009611593/100',
-      disposition: 'Accept → Stores',
+      disposition: 'Accept → Stock',
       parameters: [
         { param: 'Conductor size', spec: '2.5 sqmm', method: 'Gauge', frequency: 'Per lot', observation: '2.5 sqmm', pass: true },
         { param: 'Insulation OD', spec: '3.4 ± 0.2 mm', method: 'Vernier', frequency: 'Per lot', observation: '3.45 mm', pass: true },
@@ -428,7 +462,7 @@ function buildSeed() {
       date: '11/04/2026',
       status: 'pass',
       wo: '3009611593/100',
-      disposition: 'Accept → Stores',
+      disposition: 'Accept → Stock',
       parameters: [
         { param: 'Conductor size', spec: '2.5 sqmm', method: 'Gauge', frequency: 'Per lot', observation: '2.5 sqmm', pass: true },
         { param: 'Insulation OD', spec: '3.4 ± 0.2 mm', method: 'Vernier', frequency: 'Per lot', observation: '3.42 mm', pass: true },
@@ -446,7 +480,7 @@ function buildSeed() {
       date: '04/05/2026',
       status: 'pass',
       wo: '3009649896/100',
-      disposition: 'Accept → Stores',
+      disposition: 'Accept → Stock',
       parameters: [
         { param: 'Crimp width', spec: '6.2 ± 0.2 mm', method: 'Vernier', frequency: 'Sample', observation: '6.25 mm', pass: true },
         { param: 'Plating', spec: 'Tin, uniform', method: 'Visual', frequency: '100%', observation: 'OK', pass: true },

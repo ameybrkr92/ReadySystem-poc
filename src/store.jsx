@@ -246,6 +246,22 @@ function reducer(state, action) {
       }
     }
 
+    // Incoming QC performed in Inventory — clear or hold an inward lot.
+    case 'SET_GRN_INSPECTION': {
+      const { grn, status } = action.payload
+      const row = state.goodsInward.find((g) => g.grn === grn)
+      const goodsInward = state.goodsInward.map((g) =>
+        g.grn === grn
+          ? { ...g, inspection: status, remark: status === 'On Hold' ? 'Held at incoming QC' : 'Cleared at incoming QC' }
+          : g
+      )
+      const ev =
+        status === 'On Hold'
+          ? logEvent(state, 'alert', `Incoming QC HOLD: ${grn}${row ? ` (${row.item})` : ''}`)
+          : logEvent(state, 'qc', `Incoming QC passed: ${grn}${row ? ` (${row.item})` : ''}`)
+      return { ...state, goodsInward, activity: ev }
+    }
+
     case 'ADD_INSPECTION': {
       const p = action.payload
       const isFinal = p.qcType === 'final'

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
+import { STAGES, stageIndex } from '../data/seed.js'
 import StageTracker from '../components/StageTracker.jsx'
 import { StatusBadge, Tag } from '../components/ui.jsx'
 
@@ -47,27 +48,108 @@ function feedTone(kind) {
   }
 }
 
-export default function Dashboard({ onOpenOrder }) {
+// Roll orders up by project for portfolio-level visibility.
+function projectRollup(orders) {
+  const map = new Map()
+  for (const o of orders) {
+    const key = o.project || 'Unassigned'
+    if (!map.has(key)) map.set(key, { name: key, orders: [], stuck: 0, done: 0, prog: 0 })
+    const g = map.get(key)
+    g.orders.push(o)
+    if (o.status === 'stuck') g.stuck += 1
+    if (o.status === 'done') g.done += 1
+    g.prog += (stageIndex(o.stage) + (o.status === 'done' ? 1 : o.progress / 100)) / STAGES.length
+  }
+  return [...map.values()].map((g) => ({ ...g, avg: Math.round((g.prog / g.orders.length) * 100) }))
+}
+
+export default function Dashboard({ onOpenOrder, role }) {
   const { state, dispatch } = useStore()
   const { orders, activity, alerts } = state
+  const isDirector = role?.id === 'director'
 
   const active = orders.filter((o) => o.status !== 'done').length
   const inCosting = orders.filter((o) => o.stage === 'Costing').length
   const inBuild = orders.filter((o) => o.stage === 'Build').length
   const readyDispatch = orders.filter((o) => o.stage === 'Dispatch').length
+  const stuck = orders.filter((o) => o.status === 'stuck').length
   const alertCount = alerts.length
+  const projects = projectRollup(orders)
+
+  // Stage distribution for the director matrix.
+  const stageCounts = STAGES.map((s) => ({ stage: s, n: orders.filter((o) => o.stage === s).length }))
+  const maxStage = Math.max(1, ...stageCounts.map((s) => s.n))
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
       {/* LEFT: KPIs + order board */}
       <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className={`grid grid-cols-2 gap-4 sm:grid-cols-3 ${isDirector ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
           <Kpi label="Active Orders" value={active} accent="text-teal-700" />
           <Kpi label="In Costing" value={inCosting} />
           <Kpi label="In Build" value={inBuild} />
           <Kpi label="Ready to Dispatch" value={readyDispatch} accent="text-emerald-600" />
+          {isDirector && <Kpi label="Stuck" value={stuck} accent={stuck ? 'text-red-600' : 'text-charcoal-800'} />}
           <Kpi label="Alerts" value={alertCount} accent={alertCount ? 'text-red-600' : 'text-charcoal-800'} />
         </div>
+
+        {/* Project-wise visibility */}
+        <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
+          <div className="flex items-center justify-between border-b border-charcoal-100 px-5 py-3">
+            <h3 className="text-sm font-semibold text-charcoal-700">Projects</h3>
+            <span className="text-xs text-charcoal-400">{projects.length} projects · project-wise view</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
+            {projects.map((p) => (
+              <div key={p.name} className="rounded-lg border border-charcoal-100 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-charcoal-800">{p.name}</span>
+                  {p.stuck > 0 ? (
+                    <Tag tone="red">{p.stuck} stuck</Tag>
+                  ) : p.done === p.orders.length ? (
+                    <Tag tone="green">complete</Tag>
+                  ) : (
+                    <Tag tone="teal">on track</Tag>
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-charcoal-500">
+                  {p.orders.length} orders · {p.done} done
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-charcoal-100">
+                  <div
+                    className={`h-full rounded-full ${p.stuck ? 'bg-amber-400' : 'bg-teal-500'}`}
+                    style={{ width: `${p.avg}%` }}
+                  />
+                </div>
+                <div className="mt-1 text-right text-[11px] text-charcoal-400">{p.avg}% through pipeline</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Director-only stage distribution matrix */}
+        {isDirector && (
+          <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
+            <div className="border-b border-charcoal-100 px-5 py-3">
+              <h3 className="text-sm font-semibold text-charcoal-700">Stage distribution</h3>
+            </div>
+            <div className="grid grid-cols-5 gap-3 p-4 lg:grid-cols-10">
+              {stageCounts.map((s) => (
+                <div key={s.stage} className="flex flex-col items-center">
+                  <div className="flex h-20 w-full items-end justify-center">
+                    <div
+                      className={`w-6 rounded-t ${s.n ? 'bg-teal-500' : 'bg-charcoal-100'}`}
+                      style={{ height: `${Math.max(6, (s.n / maxStage) * 100)}%` }}
+                      title={`${s.n} order(s)`}
+                    />
+                  </div>
+                  <div className="mt-1 text-sm font-bold tabular-nums text-charcoal-700">{s.n}</div>
+                  <div className="text-center text-[9px] leading-tight text-charcoal-400">{s.stage}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
           <div className="flex items-center justify-between border-b border-charcoal-100 px-5 py-3">
@@ -84,6 +166,7 @@ export default function Dashboard({ onOpenOrder }) {
                 <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-mono text-sm font-bold text-charcoal-800">{o.id}</span>
                   <span className="text-sm text-charcoal-500">{o.client}</span>
+                  <Tag tone="grey">{o.project}</Tag>
                   <Tag tone="teal">
                     {o.product} {o.config}
                   </Tag>

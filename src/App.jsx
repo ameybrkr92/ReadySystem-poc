@@ -8,7 +8,7 @@ import Login from './components/Login.jsx'
 import Dashboard from './modules/Dashboard.jsx'
 import Planning from './modules/Planning.jsx'
 import Purchase from './modules/Purchase.jsx'
-import Stores from './modules/Stores.jsx'
+import Inventory from './modules/Inventory.jsx'
 import Quality from './modules/Quality.jsx'
 
 function SimControls() {
@@ -121,10 +121,10 @@ export default function App() {
 
   const titles = {
     dashboard: ['Live operations', 'Watch the whole shop run from one screen'],
-    planning: ['Planning & BOM', 'Siemens tracker — configs, BOM, costing milestones'],
+    planning: ['Planning & BOM', 'Orders, total BOM (harness + lugs) & costing'],
     purchase: ['Purchase', 'Purchase orders raised from BOMs'],
-    stores: ['Stores', 'Goods inward register, live stock & issue-to-job'],
-    quality: ['Quality', 'Incoming & final inspection — plans and records'],
+    inventory: ['Inventory', 'Goods inward, incoming QC, live stock & issue-to-job'],
+    quality: ['Quality', 'Final inspection records & audit pack'],
   }
   const [title, subtitle] = titles[view]
 
@@ -166,7 +166,7 @@ export default function App() {
             <Planning selectedOrder={selectedOrder} onSelect={setSelectedOrder} user={user} />
           )}
           {view === 'purchase' && <Purchase user={user} />}
-          {view === 'stores' && <Stores user={user} />}
+          {view === 'inventory' && <Inventory user={user} />}
           {view === 'quality' && <Quality selectedOrder={selectedOrder} user={user} />}
         </main>
       </div>

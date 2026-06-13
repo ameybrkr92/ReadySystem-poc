@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
-import { FEEDER_LEGEND, MATERIALS, canEdit } from '../data/seed.js'
+import { FEEDER_LEGEND, MATERIALS, HARNESS_ITEMS, CLIENT_BOM, canEdit } from '../data/seed.js'
 import { StatusBadge, Tag, Card, SectionTitle, Button, Field, Select, Input } from '../components/ui.jsx'
 import StageTracker from '../components/StageTracker.jsx'
 import { Icon } from '../components/Icons.jsx'
@@ -76,8 +76,23 @@ function parseConfig(config) {
   return { feeders, hasMetering }
 }
 
-// Build a plausible (not accurate) harness BOM from the parsed config.
-function buildBom(order) {
+// Components the CLIENT (Siemens) supplies / specifies — derived from the
+// parsed config. Ready Systems does not buy these; shown for contrast.
+function buildClientBom(order) {
+  const { feeders, hasMetering } = parseConfig(order.config)
+  const counts = { R: 0, L: 0, ME: hasMetering ? 1 : 0, MOT: order.motorised ? feeders.length : 0, PANEL: 1 }
+  feeders.forEach((f) => {
+    if (f.code === 'R') counts.R += 1
+    if (f.code === 'L') counts.L += 1
+  })
+  return CLIENT_BOM.map((c) => ({ desc: c.desc, unit: c.unit, qty: (counts[c.per] || 0) * order.qty })).filter(
+    (l) => l.qty > 0
+  )
+}
+
+// The wire/harness BOM Ready Systems builds from the GA & wiring drawings —
+// the part the client BOM omits.
+function buildWireBom(order) {
   const { feeders, hasMetering } = parseConfig(order.config)
   const rings = feeders.filter((f) => f.code === 'R').length
   const breakers = feeders.filter((f) => f.code === 'L').length
@@ -96,6 +111,29 @@ function buildBom(order) {
   return lines
 }
 
+// Harness hardware (lugs, ferrules, ducting, ties…) identified from drawings —
+// the planner's value-add, not present in the client BOM.
+function buildHarnessAdds(order) {
+  const { feeders, hasMetering } = parseConfig(order.config)
+  const n = feeders.length
+  const want = (desc, qty) => {
+    const h = HARNESS_ITEMS.find((x) => x.desc === desc)
+    return h ? { desc: h.desc, unit: h.unit, qty: Math.round(qty), rate: h.rate, amount: Math.round(qty) * h.rate } : null
+  }
+  return [
+    want('Ring Lug 2.5sqmm', (60 * n + (hasMetering ? 40 : 0)) * order.qty),
+    want('Ring Lug 1.5sqmm', (hasMetering ? 50 : 20) * order.qty),
+    want('Bootlace Ferrule 2.5sqmm', 90 * n * order.qty),
+    want('Bootlace Ferrule 1.5sqmm', (hasMetering ? 120 : 40) * order.qty),
+    want('Wire Duct 25×40mm', (3 + 1.5 * n) * order.qty),
+    want('DIN Rail 35mm', (2 + n) * order.qty),
+    want('Cable Tie 100mm', 80 * n * order.qty),
+    want('Heat-shrink Sleeve 6mm', (8 + 4 * n) * order.qty),
+    want('Ferrule Marker', 140 * n * order.qty),
+    want('Earthing Braid 6sqmm', (4 + 2 * n) * order.qty),
+  ].filter(Boolean)
+}
+
 function OrderList({ orders, onSelect }) {
   // Status colour feel echoing their tracker (green done / amber stuck / white open).
   const rowTone = (s) =>
@@ -108,6 +146,7 @@ function OrderList({ orders, onSelect }) {
           <thead>
             <tr className="border-b border-charcoal-100 text-left text-xs uppercase tracking-wide text-charcoal-400">
               <th className="px-3 py-2 font-medium">W/O No</th>
+              <th className="px-3 py-2 font-medium">Project</th>
               <th className="px-3 py-2 font-medium">Client</th>
               <th className="px-3 py-2 font-medium">Product</th>
               <th className="px-3 py-2 font-medium">Config</th>
@@ -126,6 +165,7 @@ function OrderList({ orders, onSelect }) {
                 className={`cursor-pointer transition-colors hover:bg-teal-50 ${rowTone(o.status)}`}
               >
                 <td className="px-3 py-2.5 font-mono font-semibold text-charcoal-800">{o.id}</td>
+                <td className="px-3 py-2.5 text-charcoal-600">{o.project}</td>
                 <td className="px-3 py-2.5 text-charcoal-600">{o.client}</td>
                 <td className="px-3 py-2.5">{o.product}</td>
                 <td className="px-3 py-2.5 font-medium text-charcoal-700">{o.config}</td>
@@ -148,8 +188,12 @@ function OrderList({ orders, onSelect }) {
 
 function OrderDetail({ order, onBack }) {
   const { feeders, hasMetering } = parseConfig(order.config)
-  const bom = buildBom(order)
-  const material = bom.reduce((s, l) => s + l.amount, 0)
+  const clientBom = buildClientBom(order)
+  const wireBom = buildWireBom(order)
+  const harnessAdds = buildHarnessAdds(order)
+  const wireTotal = wireBom.reduce((s, l) => s + l.amount, 0)
+  const harnessTotal = harnessAdds.reduce((s, l) => s + l.amount, 0)
+  const material = wireTotal + harnessTotal
   const labour = material * 0.35
   const overhead = material * 0.12
   const subtotal = material + labour + overhead
@@ -170,6 +214,7 @@ function OrderDetail({ order, onBack }) {
         {order.motorised && <Tag tone="grey">Motorised</Tag>}
         <StatusBadge status={order.status} />
         <span className="text-charcoal-500">{order.client}</span>
+        <Tag tone="grey">{order.project}</Tag>
       </div>
 
       <Card title="Pipeline">
@@ -218,7 +263,52 @@ function OrderDetail({ order, onBack }) {
         </Card>
       </div>
 
-      <Card title="Sample harness BOM" action={<span className="text-xs text-charcoal-400">Qty × {order.qty} sets</span>}>
+      <Card
+        title="Total BOM"
+        action={<span className="text-xs text-charcoal-400">Built from drawings · Qty × {order.qty} sets</span>}
+      >
+        <div className="mb-4 flex items-start gap-2 rounded-lg bg-teal-50 p-3 text-xs text-teal-900">
+          <Icon.bolt size={15} />
+          <span>
+            The planner reads the GA &amp; wiring drawings and builds the <strong>full</strong> BOM. The client
+            (Siemens) BOM only lists major apparatus — the <strong>harness wire, lugs, ferrules, ducting and
+            consumables below are identified by Ready Systems</strong> and are not in the client BOM.
+          </span>
+        </div>
+
+        {/* Client-supplied / specified */}
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-sm font-semibold text-charcoal-700">Client-supplied (Siemens)</span>
+          <Tag tone="grey">free-issue / specified</Tag>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-charcoal-100 text-left text-xs uppercase tracking-wide text-charcoal-400">
+                <th className="px-3 py-2 font-medium">Item</th>
+                <th className="px-3 py-2 text-right font-medium">Qty</th>
+                <th className="px-3 py-2 font-medium">Unit</th>
+                <th className="px-3 py-2 text-right font-medium">Cost to RS</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-charcoal-100">
+              {clientBom.map((l) => (
+                <tr key={l.desc}>
+                  <td className="px-3 py-2 text-charcoal-700">{l.desc}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{l.qty.toLocaleString('en-IN')}</td>
+                  <td className="px-3 py-2 text-charcoal-500">{l.unit}</td>
+                  <td className="px-3 py-2 text-right text-charcoal-400">—</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Ready Systems additions */}
+        <div className="mb-2 mt-5 flex items-center gap-2">
+          <span className="text-sm font-semibold text-charcoal-700">Added by Ready Systems (harness &amp; hardware)</span>
+          <Tag tone="teal">identified from drawings</Tag>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -231,7 +321,7 @@ function OrderDetail({ order, onBack }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-charcoal-100">
-              {bom.map((l) => (
+              {[...wireBom, ...harnessAdds].map((l) => (
                 <tr key={l.desc}>
                   <td className="px-3 py-2 text-charcoal-700">{l.desc}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{l.qty.toLocaleString('en-IN')}</td>
@@ -241,13 +331,21 @@ function OrderDetail({ order, onBack }) {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-charcoal-200">
+                <td className="px-3 py-2 font-semibold text-charcoal-700" colSpan={4}>
+                  Harness &amp; hardware total (Ready Systems scope)
+                </td>
+                <td className="px-3 py-2 text-right font-bold tabular-nums text-teal-700">{inr(material, false)}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </Card>
 
       <Card title="Costing summary">
         <div className="mx-auto max-w-md space-y-2 text-sm">
-          <Row label="Material" value={inr(material)} />
+          <Row label="Material (harness & hardware)" value={inr(material)} />
           <Row label="Labour (35%)" value={inr(labour)} />
           <Row label="Overhead (12%)" value={inr(overhead)} />
           <div className="my-1 border-t border-charcoal-100" />
