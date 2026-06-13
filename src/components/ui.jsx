@@ -48,11 +48,60 @@ export function Card({ title, action, children, className = '' }) {
   )
 }
 
-export function SectionTitle({ children, sub }) {
+export function SectionTitle({ children, sub, action }) {
   return (
-    <div className="mb-4">
-      <h2 className="text-xl font-bold text-charcoal-800">{children}</h2>
-      {sub && <p className="mt-0.5 text-sm text-charcoal-500">{sub}</p>}
+    <div className="mb-4 flex items-end justify-between gap-4">
+      <div>
+        <h2 className="text-xl font-bold text-charcoal-800">{children}</h2>
+        {sub && <p className="mt-0.5 text-sm text-charcoal-500">{sub}</p>}
+      </div>
+      {action}
     </div>
+  )
+}
+
+// Primary / secondary buttons used across modules and forms.
+export function Button({ children, onClick, variant = 'primary', type = 'button', className = '', disabled }) {
+  const variants = {
+    primary: 'bg-teal-600 text-white hover:bg-teal-700 disabled:bg-charcoal-200 disabled:text-charcoal-400',
+    secondary: 'bg-white text-charcoal-600 ring-1 ring-charcoal-200 hover:bg-charcoal-50',
+    ghost: 'text-charcoal-500 hover:bg-charcoal-100',
+    danger: 'bg-red-600 text-white hover:bg-red-700',
+  }
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// Labelled field wrapper.
+export function Field({ label, children, hint }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-charcoal-500">{label}</span>
+      {children}
+      {hint && <span className="mt-1 block text-xs text-charcoal-400">{hint}</span>}
+    </label>
+  )
+}
+
+const inputCls =
+  'w-full rounded-lg border border-charcoal-200 bg-white px-3 py-2 text-sm text-charcoal-800 outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-100'
+
+export function Input(props) {
+  return <input {...props} className={`${inputCls} ${props.className || ''}`} />
+}
+
+export function Select({ children, ...props }) {
+  return (
+    <select {...props} className={`${inputCls} ${props.className || ''}`}>
+      {children}
+    </select>
   )
 }

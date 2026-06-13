@@ -51,6 +51,65 @@ export const MATERIALS = [
 // One coil of wire ≈ 100 m (used to show "metres + coils" on the stock view).
 export const COIL_METRES = 100
 
+// ---------------------------------------------------------------------------
+// Access control (demo). Each role sees the dashboard plus the modules it owns;
+// the Director sees everything. `edit` lists the modules a role can add records
+// to. This is in-memory demo auth — no real backend or passwords.
+// ---------------------------------------------------------------------------
+export const ROLES = {
+  director: {
+    id: 'director',
+    label: 'Director',
+    blurb: 'Full visibility — every module, every order',
+    modules: ['dashboard', 'planning', 'purchase', 'stores', 'quality'],
+    edit: ['planning', 'purchase', 'stores', 'quality'],
+  },
+  planning: {
+    id: 'planning',
+    label: 'Planning',
+    blurb: 'Work orders, BOM & costing',
+    modules: ['dashboard', 'planning'],
+    edit: ['planning'],
+  },
+  purchase: {
+    id: 'purchase',
+    label: 'Purchase & Costing',
+    blurb: 'Purchase orders, suppliers & costing',
+    modules: ['dashboard', 'purchase', 'planning'],
+    edit: ['purchase'],
+  },
+  stores: {
+    id: 'stores',
+    label: 'Stores',
+    blurb: 'Goods inward, stock & issue-to-job',
+    modules: ['dashboard', 'stores'],
+    edit: ['stores'],
+  },
+  quality: {
+    id: 'quality',
+    label: 'Quality',
+    blurb: 'Incoming & final inspection',
+    modules: ['dashboard', 'quality'],
+    edit: ['quality'],
+  },
+}
+
+// Demo user accounts. The same password unlocks all of them in the demo.
+export const DEMO_PASSWORD = 'ready'
+export const USERS = [
+  { username: 'director', name: 'R. Ready', role: 'director', initials: 'RR' },
+  { username: 'planning', name: 'S. Kulkarni', role: 'planning', initials: 'SK' },
+  { username: 'purchase', name: 'M. Joshi', role: 'purchase', initials: 'MJ' },
+  { username: 'stores', name: 'R. Shinde', role: 'stores', initials: 'RS' },
+  { username: 'quality', name: 'A. Patil', role: 'quality', initials: 'AP' },
+]
+
+// Can a role create records in a given module?
+export function canEdit(roleId, moduleId) {
+  const r = ROLES[roleId]
+  return !!r && r.edit.includes(moduleId)
+}
+
 function buildSeed() {
   // -- Orders -------------------------------------------------------------
   // Spread across the pipeline; 2 deliberately stuck (red), 1 done.
@@ -107,7 +166,7 @@ function buildSeed() {
       stage: 'QC',
       status: 'stuck',
       progress: 70,
-      stuckReason: 'QC hold — PVC Black Sleeve lot under re-inspection',
+      stuckReason: 'Final QC hold — HV withstand flashover at feeder 3, panel sent for rework',
       bomToCosting: '20/03/2026',
       costingToSiemens: '24/03/2026',
     },
@@ -300,13 +359,13 @@ function buildSeed() {
 
   // -- Stores: running stock (wire in metres + coils, terminals in nos) ----
   const stock = [
-    { item: 'PVC Insu HV 1.5sqmm Grey', unit: 'm', onHand: 120, low: true },
-    { item: 'PVC Insu HV 2.5sqmm Grey', unit: 'm', onHand: 95, low: true },
-    { item: 'PVC Insu HV 2.5sqmm Red', unit: 'm', onHand: 410, low: false },
-    { item: 'PVC Insu HV 2.5sqmm Black', unit: 'm', onHand: 360, low: false },
-    { item: 'PVC Insu HV 2.5sqmm Blue', unit: 'm', onHand: 520, low: false },
-    { item: 'PVC Sleeve 16mm Black', unit: 'm', onHand: 240, low: false },
-    { item: 'Snap-on Terminal', unit: 'nos', onHand: 1850, low: false },
+    { item: 'PVC Insu HV 1.5sqmm Grey', unit: 'm', onHand: 120, reorder: 200, low: true },
+    { item: 'PVC Insu HV 2.5sqmm Grey', unit: 'm', onHand: 95, reorder: 200, low: true },
+    { item: 'PVC Insu HV 2.5sqmm Red', unit: 'm', onHand: 410, reorder: 200, low: false },
+    { item: 'PVC Insu HV 2.5sqmm Black', unit: 'm', onHand: 360, reorder: 200, low: false },
+    { item: 'PVC Insu HV 2.5sqmm Blue', unit: 'm', onHand: 520, reorder: 200, low: false },
+    { item: 'PVC Sleeve 16mm Black', unit: 'm', onHand: 240, reorder: 150, low: false },
+    { item: 'Snap-on Terminal', unit: 'nos', onHand: 1850, reorder: 800, low: false },
   ]
 
   // -- Stores: issue-to-job (the thing paper can't do) --------------------
@@ -322,6 +381,7 @@ function buildSeed() {
   const qualityRecords = [
     {
       id: 'IQP-0445',
+      qcType: 'incoming',
       doc: 'QA-IQP-011 Rev 9',
       material: 'PVC Black Sleeve 16mm',
       grn: 'GRN/098',
@@ -340,6 +400,7 @@ function buildSeed() {
     },
     {
       id: 'IQP-0440',
+      qcType: 'incoming',
       doc: 'QA-IQP-004 Rev 6',
       material: 'PVC Insu HV 2.5sqmm Grey',
       grn: 'GRN/112',
@@ -358,6 +419,7 @@ function buildSeed() {
     },
     {
       id: 'IQP-0438',
+      qcType: 'incoming',
       doc: 'QA-IQP-004 Rev 6',
       material: 'PVC Insu HV 2.5sqmm Red',
       grn: 'GRN/113',
@@ -375,6 +437,7 @@ function buildSeed() {
     },
     {
       id: 'IQP-0431',
+      qcType: 'incoming',
       doc: 'QA-IQP-019 Rev 3',
       material: 'Snap-on Terminal',
       grn: 'GRN/121',
@@ -388,6 +451,45 @@ function buildSeed() {
         { param: 'Crimp width', spec: '6.2 ± 0.2 mm', method: 'Vernier', frequency: 'Sample', observation: '6.25 mm', pass: true },
         { param: 'Plating', spec: 'Tin, uniform', method: 'Visual', frequency: '100%', observation: 'OK', pass: true },
         { param: 'Pull-out force', spec: '≥ 80 N', method: 'Force gauge', frequency: 'Sample', observation: '92 N', pass: true },
+      ],
+    },
+    // ---- Final / pre-dispatch inspection (after assembly) ----
+    {
+      id: 'FQC-0210',
+      qcType: 'final',
+      doc: 'QA-FQP-002 Rev 4',
+      material: 'Assembled panel — 8DJHST LRRL+ME',
+      grn: '—',
+      lot: 'WO 3009348471/100',
+      checkedBy: 'A. Patil',
+      date: '11/06/2026',
+      status: 'hold',
+      wo: '3009348471/100',
+      disposition: 'Rework',
+      parameters: [
+        { param: 'HV withstand (1 min)', spec: '28 kV, no flashover', method: 'HV set', frequency: '100%', observation: 'Flashover at feeder 3', pass: false },
+        { param: 'Wiring continuity', spec: 'As per scheme', method: 'Buzzer', frequency: '100%', observation: 'OK', pass: true },
+        { param: 'Torque marking', spec: 'All joints marked', method: 'Visual', frequency: '100%', observation: 'OK', pass: true },
+        { param: 'Mechanical operation', spec: '5 cycles OK', method: 'Manual', frequency: '100%', observation: 'OK', pass: true },
+      ],
+    },
+    {
+      id: 'FQC-0208',
+      qcType: 'final',
+      doc: 'QA-FQP-002 Rev 4',
+      material: 'Assembled panel — 8DJHST RRRL',
+      grn: '—',
+      lot: 'WO 3008917364/400',
+      checkedBy: 'R. Shinde',
+      date: '03/03/2026',
+      status: 'pass',
+      wo: '3008917364/400',
+      disposition: 'Accept → Dispatch',
+      parameters: [
+        { param: 'HV withstand (1 min)', spec: '28 kV, no flashover', method: 'HV set', frequency: '100%', observation: 'No flashover', pass: true },
+        { param: 'Wiring continuity', spec: 'As per scheme', method: 'Buzzer', frequency: '100%', observation: 'OK', pass: true },
+        { param: 'Primary injection', spec: 'Trips within band', method: 'Injection set', frequency: '100%', observation: 'OK', pass: true },
+        { param: 'Paint & labels', spec: 'No damage, correct', method: 'Visual', frequency: '100%', observation: 'OK', pass: true },
       ],
     },
   ]
@@ -414,7 +516,7 @@ function buildSeed() {
       id: 'al2',
       severity: 'red',
       title: 'QC hold',
-      text: 'Job 3009348471/100 — PVC Black Sleeve lot S/3/26-02 on hold (bore oversize).',
+      text: 'Job 3009348471/100 — final inspection hold (HV flashover at feeder 3). Panel on rework.',
       wo: '3009348471/100',
     },
     {

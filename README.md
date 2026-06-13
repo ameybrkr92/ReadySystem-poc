@@ -22,6 +22,20 @@ npm run dev
 
 Opens at <http://localhost:5173> on a desktop/laptop browser.
 
+## Logins (demo)
+
+Sign in by clicking a role card, or type a username with the demo password
+**`ready`**. Each role sees only what it owns (plus the shared dashboard); the
+Director sees everything.
+
+| Username   | Role                | Sees                                   | Can create            |
+|------------|---------------------|----------------------------------------|-----------------------|
+| `director` | Director            | Dashboard + all four modules           | everything            |
+| `planning` | Planning            | Dashboard + Planning                   | work orders           |
+| `purchase` | Purchase & Costing  | Dashboard + Purchase + Planning (cost) | purchase orders       |
+| `stores`   | Stores              | Dashboard + Stores                     | GRNs, issue-to-job    |
+| `quality`  | Quality             | Dashboard + Quality                    | inspection records    |
+
 ## What you'll see
 
 - **Dashboard (the hero)** — live KPI strip, an order status board with a
@@ -37,10 +51,26 @@ Opens at <http://localhost:5173> on a desktop/laptop browser.
   flagged as delaying a job (tied to the dashboard shortage alert).
 - **Stores** — the goods inward register (their real columns), live running
   stock (wire in metres + coils, terminals in nos), and issue-to-job records.
-- **Quality** — QA-IQP inspection plans + records; one lot on hold (tied to the
-  dashboard QC alert), plus an "audit pack" export.
+- **Quality** — **two QC gates**: *Incoming* (at goods inward) and *Final*
+  (after assembly, before dispatch), each with its own inspection records. One
+  incoming lot and one final panel are on hold (tied to dashboard alerts), plus
+  an "audit pack" export.
 
-All four modules share the same seed data, so it feels like one connected system.
+## Making entries
+
+Roles with edit rights get **New …** buttons that open forms writing to the
+shared in-memory state — so the whole system reacts at once:
+
+- **Planning → New work order** — joins the live pipeline at RFQ.
+- **Purchase → New PO** — multi-line PO against a supplier and work order.
+- **Stores → New GRN / Issue to job** — a GRN bumps live stock and queues
+  incoming QC; an issue draws stock down against a W/O.
+- **Quality → New inspection** — record an incoming or final inspection;
+  a "hold" raises an alert on the dashboard.
+
+"Reset demo" restores the pristine seed (it does not log you out).
+
+All modules share the same seed data, so it feels like one connected system.
 
 ## Tech
 

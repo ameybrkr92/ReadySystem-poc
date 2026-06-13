@@ -20,6 +20,26 @@ function fmtClock(mins) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+// Today's date in DD/MM/YYYY for new entries.
+function today() {
+  return '13/06/2026'
+}
+
+// Next sequential id from a list, given a prefix and how to read the number.
+function nextSeq(list, getNum, prefix, pad) {
+  const max = list.reduce((m, x) => Math.max(m, getNum(x) || 0), 0)
+  return `${prefix}${String(max + 1).padStart(pad, '0')}`
+}
+
+// Increase/decrease on-hand for a stock item and recompute its low flag.
+function adjustStock(stock, itemDesc, delta) {
+  return stock.map((s) => {
+    if (s.item !== itemDesc) return s
+    const onHand = Math.max(0, s.onHand + delta)
+    return { ...s, onHand, low: onHand < (s.reorder ?? 0) }
+  })
+}
+
 function initState() {
   return {
     ...makeSeed(),
@@ -129,6 +149,137 @@ function reducer(state, action) {
       return { ...state, toasts: state.toasts.filter((t) => t.id !== action.id) }
     case 'DISMISS_ALERT':
       return { ...state, alerts: state.alerts.filter((a) => a.id !== action.id) }
+
+    // ---- Data entry (forms in the modules write here) -------------------
+    case 'ADD_ORDER': {
+      const p = action.payload
+      const order = {
+        id: p.id,
+        client: p.client,
+        product: p.product,
+        config: p.config,
+        motorised: p.motorised,
+        qty: p.qty,
+        stage: 'RFQ',
+        status: 'ontrack',
+        progress: 8,
+        stuckReason: null,
+        bomToCosting: '—',
+        costingToSiemens: '—',
+      }
+      return {
+        ...state,
+        orders: [...state.orders, order],
+        activity: logEvent(state, 'stage', `New work order ${p.id} created — ${p.client} (${p.product} ${p.config})`),
+      }
+    }
+
+    case 'ADD_PO': {
+      const p = action.payload
+      const id = nextSeq(
+        state.purchaseOrders,
+        (po) => parseInt((po.id.match(/(\d+)$/) || [])[1], 10),
+        'PO-2026-',
+        4
+      )
+      const po = {
+        id,
+        supplier: p.supplier,
+        wo: p.wo,
+        raisedOn: today(),
+        status: 'Ordered',
+        note: null,
+        items: p.items,
+      }
+      return {
+        ...state,
+        purchaseOrders: [po, ...state.purchaseOrders],
+        activity: logEvent(state, 'stage', `${id} raised — ${p.supplier} for Job ${p.wo}`),
+      }
+    }
+
+    case 'ADD_GRN': {
+      const p = action.payload
+      const grnNo = nextSeq(
+        state.goodsInward,
+        (g) => parseInt((g.grn.match(/(\d+)/) || [])[1], 10),
+        'GRN/',
+        3
+      )
+      const row = {
+        date: today(),
+        grn: grnNo,
+        po: p.po || '—',
+        lot: p.lot || '—',
+        lr: p.lr || '—',
+        party: p.party,
+        item: p.item,
+        challan: p.challan || '—',
+        qty: `${p.qtyNum} ${p.unit}`,
+        rate: p.rate,
+        inspection: 'Pending',
+        remark: p.remark || 'Awaiting incoming QC',
+        sign: p.sign,
+      }
+      return {
+        ...state,
+        goodsInward: [row, ...state.goodsInward],
+        stock: adjustStock(state.stock, p.item, p.qtyNum),
+        activity: logEvent(state, 'grn', `${grnNo} received — ${p.party} (${p.item}, ${p.qtyNum} ${p.unit})`),
+      }
+    }
+
+    case 'ADD_ISSUE': {
+      const p = action.payload
+      const row = {
+        date: today(),
+        wo: p.wo,
+        item: p.item,
+        qty: `${p.qtyNum} ${p.unit}`,
+        by: p.sign,
+      }
+      return {
+        ...state,
+        issues: [row, ...state.issues],
+        stock: adjustStock(state.stock, p.item, -p.qtyNum),
+        activity: logEvent(state, 'issue', `Issued ${p.qtyNum} ${p.unit} ${p.item} to Job ${p.wo}`),
+      }
+    }
+
+    case 'ADD_INSPECTION': {
+      const p = action.payload
+      const isFinal = p.qcType === 'final'
+      const id = nextSeq(
+        state.qualityRecords.filter((r) => r.qcType === p.qcType),
+        (r) => parseInt((r.id.match(/(\d+)/) || [])[1], 10),
+        isFinal ? 'FQC-' : 'IQP-',
+        4
+      )
+      const rec = {
+        id,
+        qcType: p.qcType,
+        doc: p.doc,
+        material: p.material,
+        grn: p.grn || '—',
+        lot: p.lot || '—',
+        checkedBy: p.checkedBy,
+        date: today(),
+        status: p.status,
+        wo: p.wo || '—',
+        disposition: p.disposition,
+        parameters: p.parameters || [],
+      }
+      const ev =
+        p.status === 'hold'
+          ? logEvent(state, 'alert', `${isFinal ? 'Final' : 'Incoming'} QC HOLD: ${p.material} (${id})`)
+          : logEvent(state, 'qc', `${isFinal ? 'Final' : 'Incoming'} QC passed: ${p.material} (${id})`)
+      return {
+        ...state,
+        qualityRecords: [rec, ...state.qualityRecords],
+        activity: ev,
+      }
+    }
+
     case 'RESET':
       return initState()
     default:

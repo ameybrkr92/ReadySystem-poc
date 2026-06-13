@@ -1,9 +1,69 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
-import { FEEDER_LEGEND, MATERIALS } from '../data/seed.js'
-import { StatusBadge, Tag, Card, SectionTitle } from '../components/ui.jsx'
+import { FEEDER_LEGEND, MATERIALS, canEdit } from '../data/seed.js'
+import { StatusBadge, Tag, Card, SectionTitle, Button, Field, Select, Input } from '../components/ui.jsx'
 import StageTracker from '../components/StageTracker.jsx'
+import { Icon } from '../components/Icons.jsx'
+import Modal from '../components/Modal.jsx'
 import { inr, inrWhole } from '../lib/format.js'
+
+function NewOrderForm({ onClose, onSubmit }) {
+  const [id, setId] = useState('')
+  const [client, setClient] = useState('')
+  const [product, setProduct] = useState('8DJHST')
+  const [config, setConfig] = useState('')
+  const [motorised, setMotorised] = useState(false)
+  const [qty, setQty] = useState('1')
+  const valid = id.trim() && client.trim() && config.trim() && Number(qty) > 0
+
+  return (
+    <Modal
+      title="New work order"
+      subtitle="Starts at RFQ and joins the live pipeline immediately"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!valid}
+            onClick={() =>
+              onSubmit({ id: id.trim(), client: client.trim(), product, config: config.trim().toUpperCase(), motorised, qty: Number(qty) })
+            }
+          >
+            <Icon.check size={15} /> Create order
+          </Button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="W/O No">
+          <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="3009xxxxxx/100" />
+        </Field>
+        <Field label="Client">
+          <Input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Siemens Energy India Ltd" />
+        </Field>
+        <Field label="Product">
+          <Select value={product} onChange={(e) => setProduct(e.target.value)}>
+            <option>8DJHST</option>
+            <option>8FB20</option>
+          </Select>
+        </Field>
+        <Field label="Config" hint="e.g. RRL, RRL+ME, LRRL+ME">
+          <Input value={config} onChange={(e) => setConfig(e.target.value)} placeholder="RRL+ME" />
+        </Field>
+        <Field label="Motorised">
+          <Select value={motorised ? 'yes' : 'no'} onChange={(e) => setMotorised(e.target.value === 'yes')}>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </Select>
+        </Field>
+        <Field label="Quantity (sets)">
+          <Input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
+        </Field>
+      </div>
+    </Modal>
+  )
+}
 
 // Parse a config string ("ME+LRRL-") into feeders + the metering option.
 function parseConfig(config) {
@@ -230,19 +290,41 @@ function Row({ label, value, bold }) {
   )
 }
 
-export default function Planning({ selectedOrder, onSelect }) {
-  const { state } = useStore()
+export default function Planning({ selectedOrder, onSelect, user }) {
+  const { state, dispatch } = useStore()
   const order = state.orders.find((o) => o.id === selectedOrder)
+  const [showForm, setShowForm] = useState(false)
+  const editable = canEdit(user.role, 'planning')
 
   return (
     <div>
-      <SectionTitle sub="The same work orders you see on the dashboard — open one for its parsed config, BOM and costing.">
+      <SectionTitle
+        sub="The same work orders you see on the dashboard — open one for its parsed config, BOM and costing."
+        action={
+          editable &&
+          !order && (
+            <Button onClick={() => setShowForm(true)}>
+              <Icon.plus size={16} /> New work order
+            </Button>
+          )
+        }
+      >
         Planning &amp; BOM
       </SectionTitle>
       {order ? (
         <OrderDetail order={order} onBack={() => onSelect(null)} />
       ) : (
         <OrderList orders={state.orders} onSelect={onSelect} />
+      )}
+
+      {showForm && (
+        <NewOrderForm
+          onClose={() => setShowForm(false)}
+          onSubmit={(payload) => {
+            dispatch({ type: 'ADD_ORDER', payload })
+            setShowForm(false)
+          }}
+        />
       )}
     </div>
   )

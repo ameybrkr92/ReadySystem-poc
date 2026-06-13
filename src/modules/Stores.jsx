@@ -1,21 +1,163 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
-import { Card, SectionTitle, Tag } from '../components/ui.jsx'
+import { MATERIALS, SUPPLIERS, canEdit } from '../data/seed.js'
+import { Card, SectionTitle, Tag, Button, Field, Select, Input } from '../components/ui.jsx'
+import { Icon } from '../components/Icons.jsx'
+import Modal from '../components/Modal.jsx'
 import { stockLabel } from '../lib/format.js'
 
 function inspectionTone(v) {
   if (v === 'Accepted') return 'green'
   if (v === 'On Hold') return 'red'
-  return 'amber'
+  if (v === 'Pending') return 'amber'
+  return 'grey'
 }
 
-export default function Stores() {
-  const { state } = useStore()
-  const { goodsInward, stock, issues } = state
+function NewGRNForm({ onClose, onSubmit }) {
+  const [item, setItem] = useState(MATERIALS[0].desc)
+  const mat = MATERIALS.find((m) => m.desc === item)
+  const [qty, setQty] = useState('')
+  const [party, setParty] = useState(SUPPLIERS[2])
+  const [po, setPo] = useState('')
+  const [lot, setLot] = useState('')
+  const [lr, setLr] = useState('')
+  const [challan, setChallan] = useState('')
+  const valid = Number(qty) > 0
+
+  return (
+    <Modal
+      title="Record goods inward (GRN)"
+      subtitle="Adds to the inward register and bumps live stock — then goes for incoming QC"
+      onClose={onClose}
+      wide
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!valid}
+            onClick={() =>
+              onSubmit({ item, qtyNum: Number(qty), unit: mat.unit, rate: mat.rate, party, po, lot, lr, challan })
+            }
+          >
+            <Icon.check size={15} /> Save GRN
+          </Button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Field label="Item">
+            <Select value={item} onChange={(e) => setItem(e.target.value)}>
+              {MATERIALS.map((m) => (
+                <option key={m.id}>{m.desc}</option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <Field label={`Quantity (${mat.unit})`}>
+          <Input type="number" min="0" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
+        </Field>
+        <Field label="Rate (₹) — from master">
+          <Input value={mat.rate.toFixed(2)} disabled />
+        </Field>
+        <Field label="Party (supplier)">
+          <Select value={party} onChange={(e) => setParty(e.target.value)}>
+            {SUPPLIERS.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="PO No">
+          <Input value={po} onChange={(e) => setPo(e.target.value)} placeholder="PO-2026-…" />
+        </Field>
+        <Field label="Lot No">
+          <Input value={lot} onChange={(e) => setLot(e.target.value)} placeholder="L/6/26-…" />
+        </Field>
+        <Field label="LR No">
+          <Input value={lr} onChange={(e) => setLr(e.target.value)} placeholder="LR-…" />
+        </Field>
+        <div className="col-span-2">
+          <Field label="Challan / Invoice No">
+            <Input value={challan} onChange={(e) => setChallan(e.target.value)} placeholder="INV-…" />
+          </Field>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function IssueForm({ orders, onClose, onSubmit }) {
+  const [wo, setWo] = useState(orders[0]?.id || '')
+  const [item, setItem] = useState(MATERIALS[0].desc)
+  const mat = MATERIALS.find((m) => m.desc === item)
+  const [qty, setQty] = useState('')
+  const valid = Number(qty) > 0
+
+  return (
+    <Modal
+      title="Issue material to job"
+      subtitle="The thing paper can't do — every metre tied to a work order"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!valid}
+            onClick={() => onSubmit({ wo, item, qtyNum: Number(qty), unit: mat.unit })}
+          >
+            <Icon.check size={15} /> Issue
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Work order">
+          <Select value={wo} onChange={(e) => setWo(e.target.value)}>
+            {orders.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.id} — {o.client}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Item">
+          <Select value={item} onChange={(e) => setItem(e.target.value)}>
+            {MATERIALS.map((m) => (
+              <option key={m.id}>{m.desc}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={`Quantity (${mat.unit})`}>
+          <Input type="number" min="0" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+export default function Stores({ user }) {
+  const { state, dispatch } = useStore()
+  const { goodsInward, stock, issues, orders } = state
+  const [modal, setModal] = useState(null) // 'grn' | 'issue' | null
+  const editable = canEdit(user.role, 'stores')
 
   return (
     <div className="space-y-5">
-      <SectionTitle sub="Your paper inward register, digitized — with live stock and issue-to-job, the part paper can't do.">
+      <SectionTitle
+        sub="Your paper inward register, digitized — with live stock and issue-to-job, the part paper can't do."
+        action={
+          editable && (
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setModal('issue')}>
+                <Icon.plus size={16} /> Issue to job
+              </Button>
+              <Button onClick={() => setModal('grn')}>
+                <Icon.plus size={16} /> New GRN
+              </Button>
+            </div>
+          )
+        }
+      >
         Stores
       </SectionTitle>
 
@@ -94,8 +236,8 @@ export default function Stores() {
             </table>
           </div>
           <p className="mt-3 text-xs text-charcoal-400">
-            Wire shown in metres + coils (1 coil ≈ 100 m); terminals in nos. Low items drive the dashboard
-            shortage alert.
+            Wire shown in metres + coils (1 coil ≈ 100 m); terminals in nos. Recording a GRN or issuing to a
+            job updates these instantly.
           </p>
         </Card>
 
@@ -129,6 +271,26 @@ export default function Stores() {
           </p>
         </Card>
       </div>
+
+      {modal === 'grn' && (
+        <NewGRNForm
+          onClose={() => setModal(null)}
+          onSubmit={(p) => {
+            dispatch({ type: 'ADD_GRN', payload: { ...p, sign: user.initials } })
+            setModal(null)
+          }}
+        />
+      )}
+      {modal === 'issue' && (
+        <IssueForm
+          orders={orders}
+          onClose={() => setModal(null)}
+          onSubmit={(p) => {
+            dispatch({ type: 'ADD_ISSUE', payload: { ...p, sign: user.initials } })
+            setModal(null)
+          }}
+        />
+      )}
     </div>
   )
 }
