@@ -3,6 +3,15 @@ import { useStore } from '../store.jsx'
 import { STAGES, stageIndex } from '../data/seed.js'
 import StageTracker from '../components/StageTracker.jsx'
 import { StatusBadge, Tag } from '../components/ui.jsx'
+import { orderQuote } from '../lib/costing.js'
+
+// Compact ₹ for KPI tiles: ₹ 12.4L / ₹ 1.2Cr.
+function inrCompact(n) {
+  const v = Number(n) || 0
+  if (v >= 1e7) return `₹ ${(v / 1e7).toFixed(2)} Cr`
+  if (v >= 1e5) return `₹ ${(v / 1e5).toFixed(1)} L`
+  return `₹ ${Math.round(v).toLocaleString('en-IN')}`
+}
 
 // KPI tile whose number gently flashes whenever it changes — so the eye is
 // drawn to movement without the dashboard feeling noisy.
@@ -53,11 +62,12 @@ function projectRollup(orders) {
   const map = new Map()
   for (const o of orders) {
     const key = o.project || 'Unassigned'
-    if (!map.has(key)) map.set(key, { name: key, orders: [], stuck: 0, done: 0, prog: 0 })
+    if (!map.has(key)) map.set(key, { name: key, orders: [], stuck: 0, done: 0, prog: 0, value: 0 })
     const g = map.get(key)
     g.orders.push(o)
     if (o.status === 'stuck') g.stuck += 1
     if (o.status === 'done') g.done += 1
+    g.value += orderQuote(o)
     g.prog += (stageIndex(o.stage) + (o.status === 'done' ? 1 : o.progress / 100)) / STAGES.length
   }
   return [...map.values()].map((g) => ({ ...g, avg: Math.round((g.prog / g.orders.length) * 100) }))
@@ -80,6 +90,13 @@ export default function Dashboard({ onOpenOrder, role }) {
   const stageCounts = STAGES.map((s) => ({ stage: s, n: orders.filter((o) => o.stage === s).length }))
   const maxStage = Math.max(1, ...stageCounts.map((s) => s.n))
 
+  // Director analytics: pipeline value, on-time %, ageing of stuck jobs.
+  const pipelineValue = orders.filter((o) => o.status !== 'done').reduce((s, o) => s + orderQuote(o), 0)
+  const onTimePct = orders.length ? Math.round(((orders.length - stuck) / orders.length) * 100) : 100
+  const stuckList = orders
+    .filter((o) => o.status === 'stuck')
+    .sort((a, b) => (b.stuckDays || 0) - (a.stuckDays || 0))
+
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
       {/* LEFT: KPIs + order board */}
@@ -92,6 +109,66 @@ export default function Dashboard({ onOpenOrder, role }) {
           {isDirector && <Kpi label="Stuck" value={stuck} accent={stuck ? 'text-red-600' : 'text-charcoal-800'} />}
           <Kpi label="Alerts" value={alertCount} accent={alertCount ? 'text-red-600' : 'text-charcoal-800'} />
         </div>
+
+        {/* Director-only portfolio analytics */}
+        {isDirector && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-charcoal-100">
+              <div className="text-xs font-medium uppercase tracking-wide text-charcoal-400">
+                Open pipeline value
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums text-teal-700">{inrCompact(pipelineValue)}</div>
+              <div className="mt-0.5 text-xs text-charcoal-400">Quoted value of orders not yet dispatched</div>
+            </div>
+
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-charcoal-100">
+              <div className="text-xs font-medium uppercase tracking-wide text-charcoal-400">On-track</div>
+              <div className="mt-1 flex items-end gap-2">
+                <span
+                  className={`text-2xl font-bold tabular-nums ${onTimePct >= 80 ? 'text-emerald-600' : 'text-amber-600'}`}
+                >
+                  {onTimePct}%
+                </span>
+                <span className="pb-1 text-xs text-charcoal-400">{stuck} of {orders.length} stuck</span>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-charcoal-100">
+                <div
+                  className={`h-full rounded-full ${onTimePct >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                  style={{ width: `${onTimePct}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-charcoal-100">
+              <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-charcoal-400">
+                Stuck jobs — ageing
+              </div>
+              {stuckList.length === 0 ? (
+                <div className="text-sm text-charcoal-500">Nothing stuck — all jobs moving.</div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {stuckList.map((o) => (
+                    <li key={o.id} className="flex items-center justify-between gap-2 text-sm">
+                      <button
+                        onClick={() => onOpenOrder(o.id, 'planning')}
+                        className="truncate font-mono text-charcoal-700 hover:text-teal-700 hover:underline"
+                      >
+                        {o.id}
+                      </button>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          (o.stuckDays || 0) >= 5 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {o.stuckDays || 0}d at {o.stage}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Project-wise visibility */}
         <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
@@ -112,8 +189,9 @@ export default function Dashboard({ onOpenOrder, role }) {
                     <Tag tone="teal">on track</Tag>
                   )}
                 </div>
-                <div className="mt-1 text-xs text-charcoal-500">
-                  {p.orders.length} orders · {p.done} done
+                <div className="mt-1 flex items-center justify-between text-xs text-charcoal-500">
+                  <span>{p.orders.length} orders · {p.done} done</span>
+                  <span className="font-semibold text-charcoal-700">{inrCompact(p.value)}</span>
                 </div>
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-charcoal-100">
                   <div

@@ -45,8 +45,11 @@ the shared dashboard); the Director sees everything.
   and a right rail with alerts + a streaming activity feed.
   - The simulation advances every few seconds on its own. Use **Play/Pause**,
     the **speed** selector (0.5×–4×), **Fast-forward day**, and **Reset demo**.
-- **Dashboard** — KPI strip, **project-wise** rollup, and the live order board.
-  The Director also gets extra KPIs (Stuck) and a stage-distribution matrix.
+- **Dashboard** — KPI strip, **project-wise** rollup (with ₹ value per project),
+  and the live order board. The Director also gets a **Stuck** KPI, an analytics
+  band (open pipeline value, on-track %, stuck-job ageing) and a
+  stage-distribution matrix.
+  - The sidebar nests **Purchase & Costing** under a **Planning** group.
 - **Planning & BOM** — orders + the **total BOM**: the planner reads the
   drawings and builds the full BOM, clearly split into *client-supplied
   (Siemens)* apparatus and the *harness, lugs, ferrules, ducting and

@@ -1,17 +1,45 @@
 import React from 'react'
 import { Icon } from './Icons.jsx'
 
+// Nav is grouped: Purchase & Costing sit nested under a "Planning" group,
+// reflecting that they're part of the planning function. Top-level items have
+// no group; grouped items render under a faint group label and are indented.
 const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: Icon.dashboard },
-  { key: 'planning', label: 'Planning', icon: Icon.planning },
-  { key: 'purchase', label: 'Purchase', icon: Icon.purchase },
+  {
+    group: 'Planning',
+    children: [
+      { key: 'planning', label: 'Planning & BOM', icon: Icon.planning },
+      { key: 'purchase', label: 'Purchase & Costing', icon: Icon.purchase },
+    ],
+  },
   { key: 'inventory', label: 'Inventory', icon: Icon.stores },
   { key: 'quality', label: 'Quality', icon: Icon.quality },
 ]
 
+function NavButton({ item, view, onNavigate, alertCount, nested }) {
+  const active = view === item.key
+  const IconCmp = item.icon
+  return (
+    <button
+      onClick={() => onNavigate(item.key)}
+      className={`mb-1 flex w-full items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+        nested ? 'pl-5 pr-3' : 'px-3'
+      } ${active ? 'bg-teal-500 text-white' : 'text-charcoal-300 hover:bg-charcoal-800 hover:text-white'}`}
+    >
+      <IconCmp size={18} />
+      <span>{item.label}</span>
+      {item.key === 'dashboard' && alertCount > 0 && (
+        <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          {alertCount}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export default function Sidebar({ view, onNavigate, alertCount, role }) {
-  // Only show modules this role is allowed to see.
-  const items = NAV.filter((n) => role.modules.includes(n.key))
+  const visible = (key) => role.modules.includes(key)
 
   return (
     <aside className="flex w-56 shrink-0 flex-col bg-charcoal-900 text-charcoal-100">
@@ -26,25 +54,37 @@ export default function Sidebar({ view, onNavigate, alertCount, role }) {
       </div>
 
       <nav className="mt-2 flex-1 px-3">
-        {items.map((item) => {
-          const active = view === item.key
-          const IconCmp = item.icon
+        {NAV.map((item, i) => {
+          if (item.group) {
+            const kids = item.children.filter((c) => visible(c.key))
+            if (kids.length === 0) return null
+            return (
+              <div key={item.group} className="mb-1 mt-3">
+                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-charcoal-500">
+                  {item.group}
+                </div>
+                {kids.map((c) => (
+                  <NavButton
+                    key={c.key}
+                    item={c}
+                    view={view}
+                    onNavigate={onNavigate}
+                    alertCount={alertCount}
+                    nested
+                  />
+                ))}
+              </div>
+            )
+          }
+          if (!visible(item.key)) return null
           return (
-            <button
+            <NavButton
               key={item.key}
-              onClick={() => onNavigate(item.key)}
-              className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                active ? 'bg-teal-500 text-white' : 'text-charcoal-300 hover:bg-charcoal-800 hover:text-white'
-              }`}
-            >
-              <IconCmp size={18} />
-              <span>{item.label}</span>
-              {item.key === 'dashboard' && alertCount > 0 && (
-                <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {alertCount}
-                </span>
-              )}
-            </button>
+              item={item}
+              view={view}
+              onNavigate={onNavigate}
+              alertCount={alertCount}
+            />
           )
         })}
       </nav>
