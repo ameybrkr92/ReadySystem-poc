@@ -14,24 +14,25 @@ import Quality from './modules/Quality.jsx'
 function SimControls() {
   const { state, dispatch } = useStore()
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 rounded-xl border border-charcoal-200 bg-white p-1 shadow-card">
       <button
         onClick={() => dispatch({ type: 'SET_PLAYING', value: !state.playing })}
-        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white transition-colors ${
+        title={state.playing ? 'Pause simulation' : 'Play simulation'}
+        className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-white transition-colors ${
           state.playing ? 'bg-teal-600 hover:bg-teal-700' : 'bg-amber-500 hover:bg-amber-600'
         }`}
       >
-        {state.playing ? <Icon.pause size={15} /> : <Icon.play size={15} />}
-        {state.playing ? 'Pause' : 'Play'}
+        {state.playing ? <Icon.pause size={14} /> : <Icon.play size={14} />}
+        <span className="hidden sm:inline">{state.playing ? 'Pause' : 'Play'}</span>
       </button>
 
-      <div className="flex items-center overflow-hidden rounded-lg ring-1 ring-charcoal-200">
+      <div className="flex items-center gap-0.5 rounded-lg bg-charcoal-100 p-0.5">
         {Object.keys(SPEEDS).map((s) => (
           <button
             key={s}
             onClick={() => dispatch({ type: 'SET_SPEED', value: s })}
-            className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-              state.speed === s ? 'bg-charcoal-700 text-white' : 'bg-white text-charcoal-500 hover:bg-charcoal-50'
+            className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+              state.speed === s ? 'bg-white text-charcoal-800 shadow-sm' : 'text-charcoal-500 hover:text-charcoal-700'
             }`}
           >
             {s}
@@ -41,17 +42,18 @@ function SimControls() {
 
       <button
         onClick={() => dispatch({ type: 'FAST_FORWARD' })}
-        className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-charcoal-600 ring-1 ring-charcoal-200 hover:bg-charcoal-50"
+        className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-charcoal-600 hover:bg-charcoal-100"
         title="Run several advances quickly"
       >
-        <Icon.forward size={15} /> Fast-forward
+        <Icon.forward size={14} /> <span className="hidden lg:inline">Skip</span>
       </button>
 
       <button
         onClick={() => dispatch({ type: 'RESET' })}
-        className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-charcoal-600 ring-1 ring-charcoal-200 hover:bg-charcoal-50"
+        className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-semibold text-charcoal-600 hover:bg-charcoal-100"
+        title="Reset demo to seed"
       >
-        <Icon.reset size={15} /> Reset
+        <Icon.reset size={14} /> <span className="hidden lg:inline">Reset</span>
       </button>
     </div>
   )
@@ -133,21 +135,25 @@ export default function App() {
       <Sidebar view={view} onNavigate={navigate} alertCount={activeAlerts} role={role} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between gap-4 border-b border-charcoal-100 bg-white px-6 py-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-charcoal-800">{title}</h1>
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
-                Demo
-              </span>
+        <header className="flex items-center justify-between gap-4 border-b border-charcoal-200/70 bg-white/80 px-6 py-3 backdrop-blur-sm">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-charcoal-400">
+              <span>{role.label}</span>
+              <Icon.chevronRight size={12} />
+              <span className="text-charcoal-600">{title}</span>
             </div>
-            <p className="text-xs text-charcoal-500">{subtitle}</p>
+            <h1 className="truncate text-lg font-bold tracking-tightish text-charcoal-900">{subtitle}</h1>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 text-sm text-charcoal-500 xl:flex">
-              <span className={`h-2 w-2 rounded-full ${state.playing ? 'animate-pulse bg-teal-500' : 'bg-charcoal-300'}`} />
-              <span className="font-mono">
+            <div className="hidden items-center gap-2 rounded-lg border border-charcoal-200 bg-white px-3 py-1.5 text-xs font-medium text-charcoal-500 shadow-card xl:flex">
+              <span className="relative flex h-2 w-2">
+                {state.playing && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-60" />
+                )}
+                <span className={`relative inline-flex h-2 w-2 rounded-full ${state.playing ? 'bg-teal-500' : 'bg-charcoal-300'}`} />
+              </span>
+              <span className="tnum font-mono text-charcoal-700">
                 {String(Math.floor(state.clock / 60) % 24).padStart(2, '0')}:
                 {String(Math.floor(state.clock % 60)).padStart(2, '0')}
               </span>
@@ -155,12 +161,15 @@ export default function App() {
               <span>13/06/2026</span>
             </div>
             <SimControls />
+            <span className="rounded-md bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 ring-1 ring-inset ring-amber-200">
+              Demo
+            </span>
             <div className="h-7 w-px bg-charcoal-200" />
             <UserMenu user={user} onLogout={() => setUser(null)} />
           </div>
         </header>
 
-        <main className="scroll-thin flex-1 overflow-y-auto p-6">
+        <main className="scroll-thin flex-1 overflow-y-auto bg-charcoal-50/60 p-6">
           {view === 'dashboard' && <Dashboard onOpenOrder={openOrder} role={role} />}
           {view === 'planning' && (
             <Planning selectedOrder={selectedOrder} onSelect={setSelectedOrder} user={user} />

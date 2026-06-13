@@ -17,7 +17,7 @@ export default function Modal({ title, subtitle, onClose, children, footer, wide
         aria-hidden="true"
       />
       <div
-        className={`relative my-6 w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} animate-slide-in rounded-2xl bg-white shadow-2xl ring-1 ring-charcoal-200`}
+        className={`relative my-6 w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} animate-slide-in rounded-2xl border border-charcoal-200/70 bg-white shadow-pop`}
       >
         <div className="flex items-start justify-between border-b border-charcoal-100 px-6 py-4">
           <div>

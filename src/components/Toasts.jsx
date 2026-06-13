@@ -19,7 +19,7 @@ export default function Toasts() {
         return (
           <div
             key={t.id}
-            className={`pointer-events-auto animate-toast-in rounded-lg border-l-4 bg-white p-3 shadow-lg ring-1 ring-charcoal-100 ${tone}`}
+            className={`pointer-events-auto animate-toast-in rounded-xl border border-charcoal-200/70 border-l-4 bg-white p-3.5 shadow-pop ${tone}`}
           >
             <div className="flex items-start gap-2">
               <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dot}`} />

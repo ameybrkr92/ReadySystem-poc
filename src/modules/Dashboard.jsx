@@ -3,6 +3,7 @@ import { useStore } from '../store.jsx'
 import { STAGES, stageIndex } from '../data/seed.js'
 import StageTracker from '../components/StageTracker.jsx'
 import { StatusBadge, Tag } from '../components/ui.jsx'
+import { Icon } from '../components/Icons.jsx'
 import { orderQuote } from '../lib/costing.js'
 
 // Compact ₹ for KPI tiles: ₹ 12.4L / ₹ 1.2Cr.
@@ -13,28 +14,40 @@ function inrCompact(n) {
   return `₹ ${Math.round(v).toLocaleString('en-IN')}`
 }
 
-// KPI tile whose number gently flashes whenever it changes — so the eye is
-// drawn to movement without the dashboard feeling noisy.
-function Kpi({ label, value, accent }) {
+const KPI_TONES = {
+  indigo: 'bg-teal-50 text-teal-600',
+  emerald: 'bg-emerald-50 text-emerald-600',
+  amber: 'bg-amber-50 text-amber-600',
+  red: 'bg-red-50 text-red-600',
+  slate: 'bg-charcoal-100 text-charcoal-500',
+}
+
+// KPI tile: icon chip + label + big tabular number. The number gently flashes
+// when it changes, so the eye catches live movement without noise.
+function Kpi({ label, value, icon: IconCmp, tone = 'slate' }) {
   const prev = useRef(value)
   const [flash, setFlash] = useState(false)
   useEffect(() => {
     if (prev.current !== value) {
       setFlash(true)
       prev.current = value
-      const t = setTimeout(() => setFlash(false), 1200)
+      const t = setTimeout(() => setFlash(false), 1100)
       return () => clearTimeout(t)
     }
   }, [value])
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-white px-5 py-4 shadow-sm ring-1 ring-charcoal-100">
-      {flash && <div className="absolute inset-0 animate-flash" />}
-      <div className="relative">
-        <div className="text-xs font-medium uppercase tracking-wide text-charcoal-400">{label}</div>
-        <div className={`mt-1 text-3xl font-bold tabular-nums ${accent || 'text-charcoal-800'}`}>
-          {value}
-        </div>
+    <div className="rounded-xl border border-charcoal-200/70 bg-white px-4 py-3.5 shadow-card transition-shadow hover:shadow-cardhover">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-400">{label}</span>
+        {IconCmp && (
+          <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${KPI_TONES[tone]}`}>
+            <IconCmp size={15} />
+          </span>
+        )}
+      </div>
+      <div className={`tnum mt-2 text-[28px] font-bold leading-none ${flash ? 'animate-flash' : ''} text-charcoal-900`}>
+        {value}
       </div>
     </div>
   )
@@ -102,18 +115,18 @@ export default function Dashboard({ onOpenOrder, role }) {
       {/* LEFT: KPIs + order board */}
       <div className="space-y-5">
         <div className={`grid grid-cols-2 gap-4 sm:grid-cols-3 ${isDirector ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
-          <Kpi label="Active Orders" value={active} accent="text-teal-700" />
-          <Kpi label="In Costing" value={inCosting} />
-          <Kpi label="In Build" value={inBuild} />
-          <Kpi label="Ready to Dispatch" value={readyDispatch} accent="text-emerald-600" />
-          {isDirector && <Kpi label="Stuck" value={stuck} accent={stuck ? 'text-red-600' : 'text-charcoal-800'} />}
-          <Kpi label="Alerts" value={alertCount} accent={alertCount ? 'text-red-600' : 'text-charcoal-800'} />
+          <Kpi label="Active Orders" value={active} icon={Icon.dashboard} tone="indigo" />
+          <Kpi label="In Costing" value={inCosting} icon={Icon.planning} tone="slate" />
+          <Kpi label="In Build" value={inBuild} icon={Icon.bolt} tone="slate" />
+          <Kpi label="Ready to Dispatch" value={readyDispatch} icon={Icon.purchase} tone="emerald" />
+          {isDirector && <Kpi label="Stuck" value={stuck} icon={Icon.alert} tone={stuck ? 'red' : 'slate'} />}
+          <Kpi label="Alerts" value={alertCount} icon={Icon.alert} tone={alertCount ? 'red' : 'slate'} />
         </div>
 
         {/* Director-only portfolio analytics */}
         {isDirector && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-charcoal-100">
+            <div className="rounded-xl border border-charcoal-200/70 bg-white p-5 shadow-card">
               <div className="text-xs font-medium uppercase tracking-wide text-charcoal-400">
                 Open pipeline value
               </div>
@@ -121,7 +134,7 @@ export default function Dashboard({ onOpenOrder, role }) {
               <div className="mt-0.5 text-xs text-charcoal-400">Quoted value of orders not yet dispatched</div>
             </div>
 
-            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-charcoal-100">
+            <div className="rounded-xl border border-charcoal-200/70 bg-white p-5 shadow-card">
               <div className="text-xs font-medium uppercase tracking-wide text-charcoal-400">On-track</div>
               <div className="mt-1 flex items-end gap-2">
                 <span
@@ -139,7 +152,7 @@ export default function Dashboard({ onOpenOrder, role }) {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-charcoal-100">
+            <div className="rounded-xl border border-charcoal-200/70 bg-white p-5 shadow-card">
               <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-charcoal-400">
                 Stuck jobs — ageing
               </div>
@@ -171,7 +184,7 @@ export default function Dashboard({ onOpenOrder, role }) {
         )}
 
         {/* Project-wise visibility */}
-        <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
+        <div className="rounded-xl border border-charcoal-200/70 bg-white shadow-card">
           <div className="flex items-center justify-between border-b border-charcoal-100 px-5 py-3">
             <h3 className="text-sm font-semibold text-charcoal-700">Projects</h3>
             <span className="text-xs text-charcoal-400">{projects.length} projects · project-wise view</span>
@@ -207,7 +220,7 @@ export default function Dashboard({ onOpenOrder, role }) {
 
         {/* Director-only stage distribution matrix */}
         {isDirector && (
-          <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
+          <div className="rounded-xl border border-charcoal-200/70 bg-white shadow-card">
             <div className="border-b border-charcoal-100 px-5 py-3">
               <h3 className="text-sm font-semibold text-charcoal-700">Stage distribution</h3>
             </div>
@@ -229,7 +242,7 @@ export default function Dashboard({ onOpenOrder, role }) {
           </div>
         )}
 
-        <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
+        <div className="rounded-xl border border-charcoal-200/70 bg-white shadow-card">
           <div className="flex items-center justify-between border-b border-charcoal-100 px-5 py-3">
             <h3 className="text-sm font-semibold text-charcoal-700">Order status board</h3>
             <span className="text-xs text-charcoal-400">{orders.length} work orders · live</span>
@@ -239,24 +252,27 @@ export default function Dashboard({ onOpenOrder, role }) {
               <button
                 key={o.id}
                 onClick={() => onOpenOrder(o.id, 'planning')}
-                className="block w-full px-5 py-4 text-left transition-colors hover:bg-charcoal-50"
+                className="group block w-full px-5 py-4 text-left transition-colors hover:bg-charcoal-50"
               >
                 <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="font-mono text-sm font-bold text-charcoal-800">{o.id}</span>
+                  <span className="font-mono text-sm font-bold text-charcoal-900">{o.id}</span>
                   <span className="text-sm text-charcoal-500">{o.client}</span>
                   <Tag tone="grey">{o.project}</Tag>
                   <Tag tone="teal">
                     {o.product} {o.config}
                   </Tag>
                   {o.motorised && <Tag tone="grey">Motorised</Tag>}
-                  <span className="ml-auto">
+                  <span className="ml-auto flex items-center gap-2">
                     <StatusBadge status={o.status} />
+                    <span className="text-charcoal-300 transition-colors group-hover:text-charcoal-500">
+                      <Icon.chevronRight size={16} />
+                    </span>
                   </span>
                 </div>
                 <StageTracker order={o} />
                 {o.status === 'stuck' && (
-                  <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-600">
-                    <span>⚠</span>
+                  <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700">
+                    <Icon.alert size={14} />
                     {o.stuckReason}
                   </div>
                 )}
@@ -268,7 +284,7 @@ export default function Dashboard({ onOpenOrder, role }) {
 
       {/* RIGHT: alerts + live activity feed */}
       <div className="space-y-5">
-        <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
+        <div className="rounded-xl border border-charcoal-200/70 bg-white shadow-card">
           <div className="flex items-center justify-between border-b border-charcoal-100 px-5 py-3">
             <h3 className="text-sm font-semibold text-charcoal-700">Alerts</h3>
             {alertCount > 0 && (
@@ -316,7 +332,7 @@ export default function Dashboard({ onOpenOrder, role }) {
           </div>
         </div>
 
-        <div className="rounded-xl bg-white shadow-sm ring-1 ring-charcoal-100">
+        <div className="rounded-xl border border-charcoal-200/70 bg-white shadow-card">
           <div className="flex items-center justify-between border-b border-charcoal-100 px-5 py-3">
             <h3 className="text-sm font-semibold text-charcoal-700">Live activity</h3>
             <span className="flex items-center gap-1.5 text-xs text-charcoal-400">

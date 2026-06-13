@@ -1,43 +1,49 @@
 import React from 'react'
 import { STAGES, stageIndex } from '../data/seed.js'
 
-// Horizontal pipeline tracker. Completed stages = teal, current = highlighted,
-// a stuck current stage pulses red, pending stages are grey.
+// Slim, segmented pipeline tracker. Completed segments fill with the accent;
+// the current node sits on a ring; a stuck current node pulses red.
 export default function StageTracker({ order, compact = false }) {
   const current = stageIndex(order.stage)
   const isStuck = order.status === 'stuck'
   const isDone = order.status === 'done'
 
   return (
-    <div className="flex items-center w-full">
+    <div className="flex w-full items-start">
       {STAGES.map((stage, i) => {
         const done = i < current || isDone
         const isCurrent = i === current && !isDone
         const stuckHere = isCurrent && isStuck
 
-        let dotClass = 'bg-charcoal-200 text-charcoal-400' // pending
-        if (done) dotClass = 'bg-teal-500 text-white'
-        if (isCurrent && !stuckHere) dotClass = 'bg-teal-600 text-white ring-4 ring-teal-200'
-        if (stuckHere) dotClass = 'bg-red-500 text-white ring-4 ring-red-200 animate-pulse-red'
+        let node = 'border-charcoal-300 bg-white text-charcoal-300' // pending
+        if (done) node = 'border-teal-500 bg-teal-500 text-white'
+        if (isCurrent && !stuckHere) node = 'border-teal-500 bg-white text-teal-600 ring-4 ring-teal-100'
+        if (stuckHere) node = 'border-red-500 bg-red-500 text-white ring-4 ring-red-100 animate-pulse-ring'
 
         return (
           <React.Fragment key={stage}>
-            <div className="flex flex-col items-center shrink-0">
+            <div className="flex shrink-0 flex-col items-center">
               <div
-                className={`flex items-center justify-center rounded-full font-semibold transition-colors ${dotClass} ${
-                  compact ? 'h-5 w-5 text-[9px]' : 'h-7 w-7 text-[11px]'
+                className={`flex items-center justify-center rounded-full border-2 font-semibold transition-colors ${node} ${
+                  compact ? 'h-4 w-4 text-[8px]' : 'h-6 w-6 text-[10px]'
                 }`}
                 title={stage}
               >
-                {done ? '✓' : i + 1}
+                {done ? (
+                  <svg width={compact ? 9 : 12} height={compact ? 9 : 12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                ) : (
+                  i + 1
+                )}
               </div>
               {!compact && (
                 <span
-                  className={`mt-1 text-[10px] leading-tight text-center w-12 ${
+                  className={`mt-1.5 w-12 text-center text-[10px] font-medium leading-tight ${
                     stuckHere
-                      ? 'text-red-600 font-semibold'
+                      ? 'text-red-600'
                       : isCurrent
-                        ? 'text-teal-700 font-semibold'
+                        ? 'font-semibold text-teal-700'
                         : done
                           ? 'text-charcoal-500'
                           : 'text-charcoal-300'
@@ -48,11 +54,9 @@ export default function StageTracker({ order, compact = false }) {
               )}
             </div>
             {i < STAGES.length - 1 && (
-              <div
-                className={`h-0.5 flex-1 mx-0.5 ${compact ? 'mb-0' : 'mb-5'} ${
-                  i < current || isDone ? 'bg-teal-400' : 'bg-charcoal-200'
-                }`}
-              />
+              <div className={`mt-2 h-[3px] flex-1 rounded-full ${compact ? '' : ''} ${
+                i < current || isDone ? 'bg-teal-500' : 'bg-charcoal-200'
+              }`} style={{ marginTop: compact ? '7px' : '10px' }} />
             )}
           </React.Fragment>
         )
